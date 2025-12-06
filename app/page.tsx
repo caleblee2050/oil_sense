@@ -3,9 +3,14 @@ import { db } from "@/db";
 import { fuelData } from "@/db/schema";
 import { desc } from "drizzle-orm";
 import { predictNextWeekPrice } from "@/lib/analysis";
-import { PriceCard } from "@/components/dashboard/price-card";
+import { PredictionBanner } from "@/components/dashboard/prediction-banner";
+import { ProStatCard } from "@/components/dashboard/pro-stat-card";
 import { TrendChart } from "@/components/dashboard/trend-chart";
-import { Droplet, DollarSign, TrendingUp } from "lucide-react";
+import { Droplet, DollarSign, BarChart2 } from "lucide-react";
+import * as motion from "framer-motion/m"; // Using m for motion if available or standard motion
+// Actually let's use the motion components we created
+import { StaggerContainer, FadeUpItem, HoverCard } from "@/components/ui/motion";
+import { motion as motionDiv } from "framer-motion"; // Direct import for one-offs
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +19,7 @@ export default async function Home() {
   const sortedPrices = [...prices].reverse();
   const latest = sortedPrices[sortedPrices.length - 1];
   const yesterday = sortedPrices[sortedPrices.length - 2];
+  const lastWeek = sortedPrices[sortedPrices.length - 8]; // 7 days ago
 
   let prediction = null;
   if (latest) {
@@ -32,104 +38,160 @@ export default async function Home() {
     }
   }
 
-  const gasolineTrend = latest && yesterday ? (latest.gasolinePrice || 0) - (yesterday.gasolinePrice || 0) : 0;
-  const dieselTrend = latest && yesterday ? (latest.dieselPrice || 0) - (yesterday.dieselPrice || 0) : 0;
+  // Calculate trends for cards
+  const getTrend = (current: number | null, prev: number | null) => (current || 0) - (prev || 0);
+  const getPercent = (current: number | null, prev: number | null) => prev ? ((current || 0) - prev) / prev * 100 : 0;
 
-  // Format for Chart
+  const gasTrend = getTrend(latest?.gasolinePrice, yesterday?.gasolinePrice);
+  const gasPercent = getPercent(latest?.gasolinePrice, yesterday?.gasolinePrice);
+
+  const dieselTrend = getTrend(latest?.dieselPrice, yesterday?.dieselPrice);
+  const dieselPercent = getPercent(latest?.dieselPrice, yesterday?.dieselPrice);
+
+  const dubaiTrend = getTrend(latest?.dubaiCrudePrice, yesterday?.dubaiCrudePrice);
+  const dubaiPercent = getPercent(latest?.dubaiCrudePrice, yesterday?.dubaiCrudePrice);
+
+  // Histories for sparklines (last 14 days)
+  const historyLimit = 14;
+  const recentHistory = sortedPrices.slice(-historyLimit);
+  const gasHistory = recentHistory.map(p => p.gasolinePrice || 0);
+  const dieselHistory = recentHistory.map(p => p.dieselPrice || 0);
+  const dubaiHistory = recentHistory.map(p => p.dubaiCrudePrice || 0);
+
+  // Format main chart data
   const chartData = sortedPrices.map(p => ({
     date: p.date,
     gasoline: p.gasolinePrice || 0,
     diesel: p.dieselPrice || 0
   }));
 
-  // Add prediction point to chart
-  if (latest && prediction) {
-    // Add mostly just for visual continuity if needed, or rely on the prediction card
-    // Ideally we add a "Next Week" point
-    // But adding it to the same series might be confusing without styling.
-    // We will skip adding it to the chart series for now, kept it clean.
+  if (!latest) {
+    return <div className="text-center py-20 text-slate-500">데이터를 불러오는 중입니다...</div>;
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white p-8">
-      <div className="max-w-6xl mx-auto space-y-8">
-        <header className="flex justify-between items-center mb-12">
-          <div>
-            <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">
-              Oil Sense
-            </h1>
-            <p className="text-gray-400 mt-2">국내 유가 예측 및 분석 대시보드</p>
-          </div>
-          <div className="text-right text-xs text-gray-500">
-            Data based on Opinet & Global Market Trends
-            <br />
-            Updated: {latest ? latest.date : "-"}
-          </div>
-        </header>
+    <StaggerContainer className="space-y-8 max-w-[1600px] mx-auto">
+      {/* Hero Prediction Section */}
+      {prediction && (
+        <FadeUpItem>
+          <PredictionBanner
+            gasoline={prediction.gasoline}
+            diesel={prediction.diesel}
+            currentGasoline={latest.gasolinePrice || 0}
+            currentDiesel={latest.dieselPrice || 0}
+            confidence={prediction.confidence}
+          />
+        </FadeUpItem>
+      )}
 
-        {latest ? (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <PriceCard
-                title="오늘의 휘발유"
-                price={latest.gasolinePrice || 0}
-                trend={gasolineTrend}
-                prediction={prediction?.gasoline}
-                icon={<Droplet size={20} />} // Use Droplet for oil/gas
-                className="bg-white/5 border-blue-500/20"
-              />
-              <PriceCard
-                title="오늘의 경유"
-                price={latest.dieselPrice || 0}
-                trend={dieselTrend}
-                prediction={prediction?.diesel}
-                icon={<Droplet size={20} className="text-emerald-400" />}
-                className="bg-white/5 border-emerald-500/20"
-              />
-              <PriceCard
-                title="국제 유가 (Dubai)"
-                price={latest.dubaiCrudePrice || 0}
-                unit="$"
-                trend={latest.dubaiCrudePrice && yesterday.dubaiCrudePrice ? Number((latest.dubaiCrudePrice - yesterday.dubaiCrudePrice).toFixed(2)) : 0}
-                icon={<DollarSign size={20} className="text-yellow-400" />}
-                className="bg-white/5 border-yellow-500/20"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <TrendChart data={chartData} />
-              </div>
-              <div className="bg-white/5 rounded-2xl p-6 border border-white/10 backdrop-blur-sm">
-                <div className="flex items-center gap-2 mb-6 text-gray-300 font-medium">
-                  <TrendingUp size={20} />
-                  <h3>분석 리포트</h3>
-                </div>
-                <div className="space-y-4 text-sm text-gray-400">
-                  <p>
-                    <strong className="text-white block mb-1">가격 변동 요인</strong>
-                    최근 두바이유 가격은 <span className="text-white">{latest.dubaiCrudePrice}불</span>로,
-                    {latest.dubaiCrudePrice! > 80 ? " 높은 수준을 유지하고 있습니다." : " 안정세를 보이고 있습니다."}
-                    환율은 <span className="text-white">{latest.exchangeRate}원</span>으로 국내 도입 가격에 영향을 미치고 있습니다.
-                  </p>
-                  <p>
-                    <strong className="text-white block mb-1">다음 주 전망</strong>
-                    모델 분석 결과, 휘발유 가격은
-                    <span className={prediction && prediction.gasoline > (latest.gasolinePrice || 0) ? " text-red-400 font-bold" : " text-blue-400 font-bold"}>
-                      {prediction && prediction.gasoline > (latest.gasolinePrice || 0) ? " 상승" : " 하락"}
-                    </span>할 것으로 예상됩니다.
-                    (신뢰도: {prediction ? prediction.confidence * 100 : 0}%)
-                  </p>
-                </div>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="text-center py-20 text-gray-500">
-            데이터가 없습니다.
-          </div>
-        )}
+      {/* Key Metrics Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <FadeUpItem>
+          <HoverCard>
+            <ProStatCard
+              title="휘발유 (Gasoline)"
+              value={latest.gasolinePrice || 0}
+              unit="원/ℓ"
+              trend={gasTrend}
+              trendPercent={gasPercent}
+              history={gasHistory}
+              icon={<Droplet size={16} className="text-blue-400" />}
+              className="group border border-slate-700/50 bg-slate-900/40 backdrop-blur-md"
+            />
+          </HoverCard>
+        </FadeUpItem>
+        <FadeUpItem>
+          <HoverCard>
+            <ProStatCard
+              title="경유 (Diesel)"
+              value={latest.dieselPrice || 0}
+              unit="원/ℓ"
+              trend={dieselTrend}
+              trendPercent={dieselPercent}
+              history={dieselHistory}
+              icon={<Droplet size={16} className="text-emerald-400" />}
+              className="group border border-slate-700/50 bg-slate-900/40 backdrop-blur-md"
+            />
+          </HoverCard>
+        </FadeUpItem>
+        <FadeUpItem>
+          <HoverCard>
+            <ProStatCard
+              title="국제 유가 (Dubai Crude)"
+              value={latest.dubaiCrudePrice || 0}
+              unit="$/bbl"
+              trend={dubaiTrend}
+              trendPercent={dubaiPercent}
+              history={dubaiHistory}
+              icon={<DollarSign size={16} className="text-amber-400" />}
+              className="group border border-slate-700/50 bg-slate-900/40 backdrop-blur-md"
+            />
+          </HoverCard>
+        </FadeUpItem>
       </div>
-    </main>
+
+      {/* Main Analysis Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[500px]">
+        <FadeUpItem className="lg:col-span-2 h-full">
+          <div className="h-full bg-slate-900/40 border border-slate-700/50 rounded-2xl p-6 backdrop-blur-md shadow-xl">
+            <TrendChart data={chartData} />
+          </div>
+        </FadeUpItem>
+
+        <FadeUpItem className="h-full">
+          <div className="h-full bg-slate-900/40 border border-slate-700/50 rounded-2xl p-6 backdrop-blur-md flex flex-col shadow-xl hover:border-blue-500/30 transition-colors duration-300">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-slate-200 flex items-center gap-2">
+                <BarChart2 size={20} className="text-slate-400" />
+                시장 분석 리포트
+              </h3>
+              <span className="text-xs text-slate-500 bg-slate-800 px-2 py-1 rounded animate-pulse">Live</span>
+            </div>
+
+            <div className="flex-1 space-y-6 overflow-y-auto pr-2 custom-scrollbar">
+              <motion.div
+                initial={{ x: 20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                className="p-4 rounded-xl bg-slate-800/30 border border-slate-700/30 hover:bg-slate-800/50 transition-colors"
+              >
+                <h4 className="text-sm font-semibold text-blue-400 mb-2 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                  국제 시장 동향
+                </h4>
+                <p className="text-sm text-slate-400 leading-relaxed">
+                  최근 두바이유 가격이 <span className="text-slate-200">{latest.dubaiCrudePrice}달러</span>를 기록하며
+                  {Math.abs(dubaiTrend) < 1 ? " 보합세" : dubaiTrend > 0 ? " 상승세" : " 하락세"}를 보이고 있습니다.
+                </p>
+              </motion.div>
+
+              <motion.div
+                initial={{ x: 20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.7 }}
+                className="p-4 rounded-xl bg-slate-800/30 border border-slate-700/30 hover:bg-slate-800/50 transition-colors"
+              >
+                <h4 className="text-sm font-semibold text-emerald-400 mb-2 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  환율 영향
+                </h4>
+                <p className="text-sm text-slate-400 leading-relaxed">
+                  원/달러 환율은 현재 <span className="text-slate-200">{latest.exchangeRate}원</span>으로,
+                  수입 원가에 {latest.exchangeRate! > 1350 ? "부담을 주고 있습니다." : "안정적인 흐름을 돕고 있습니다."}
+                </p>
+              </motion.div>
+            </div>
+
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="mt-4 w-full py-3 rounded-xl bg-gradient-to-r from-blue-600/20 to-teal-400/20 text-blue-400 text-sm font-bold border border-blue-500/30 hover:from-blue-600/30 hover:to-teal-400/30 transition-all shadow-lg"
+            >
+              전체 리포트 보기 →
+            </motion.button>
+          </div>
+        </FadeUpItem>
+      </div>
+    </StaggerContainer>
   );
 }

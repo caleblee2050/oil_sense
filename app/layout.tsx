@@ -1,16 +1,11 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
+import { Sidebar } from "@/components/layout/sidebar";
+import { TopBar } from "@/components/layout/topbar";
+import { Inter } from "next/font/google"; // Or keep local if preferred, but Inter is standard for Pro apps
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Oil Sense - 국내 유가 예측",
@@ -23,11 +18,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
+    <html lang="ko">
+      <body className={inter.className}>
+        <div className="min-h-screen bg-[var(--bg-main)]">
+          <Sidebar />
+          <TopBar />
+          <main className="lg:ml-64 p-6 lg:p-10 relative z-10">
+            {children}
+          </main>
+        </div>
       </body>
     </html>
   );

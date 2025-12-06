@@ -1,17 +1,73 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 0, 0, 0;
-  --background-end-rgb: 0, 0, 0;
+  /* Concept: Deep Insight */
+  /* Backgrounds */
+  --bg-main: #020617;
+  /* Deepest Navy/Black */
+  --bg-secondary: #0f172a;
+  /* Slate 900 */
+  --bg-card: rgba(15, 23, 42, 0.6);
+  /* Glassy card */
+
+  /* Accents */
+  --accent-blue: #3b82f6;
+  /* Electric Blue */
+  --accent-red: #ef4444;
+  /* Signal Red */
+  --accent-amber: #f59e0b;
+  /* Attention */
+  --accent-teal: #14b8a6;
+  /* Stability */
+
+  /* Text */
+  --text-primary: #f8fafc;
+  /* Slate 50 */
+  --text-secondary: #94a3b8;
+  /* Slate 400 */
+  --text-muted: #475569;
+  /* Slate 600 */
+
+  --foreground-rgb: 248, 250, 252;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: black;
+  color: var(--text-primary);
+  background: var(--bg-main);
+  /* Aurora Gradient Background */
+  background-image:
+    radial-gradient(at 0% 0%, hsla(253, 16%, 7%, 1) 0, transparent 50%),
+    radial-gradient(at 50% 0%, hsla(225, 39%, 30%, 1) 0, transparent 50%),
+    radial-gradient(at 100% 0%, hsla(339, 49%, 30%, 1) 0, transparent 50%);
+  background-size: 200% 200%;
+  animation: aurora-move 20s ease infinite;
+  min-height: 100vh;
+}
+
+/* Glassmorphism Utilities Override/Enhance */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  /* Subtle border */
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+}
+
+@keyframes aurora-move {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 @layer utilities {
